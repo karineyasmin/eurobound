@@ -1,5 +1,6 @@
-from sqlalchemy import Column, Integer, String
-from sqlalchemy.orm import relationship
+from uuid import UUID, uuid4
+from sqlalchemy import String
+from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.core.database import Base
 
 
@@ -8,9 +9,11 @@ class UserModel(Base):
 
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, nullable=False, index=True)
-    hashed_password = Column(String, nullable=False)
-    full_name = Column(String, nullable=False)
+    id: Mapped[UUID] = mapped_column(primary_key=True, index=True, default=uuid4)
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String, nullable=False)
+    full_name: Mapped[str] = mapped_column(String, nullable=False)
 
-    regions = relationship("SpatialRegionModel", back_populates="owner")
+    regions = relationship(
+        "SpatialRegionModel", back_populates="owner", casacade="all, delete-orphan"
+    )

@@ -1,35 +1,40 @@
+from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, Select
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from app.core.database import get_db_session
 from app.core.logger import logger
 from app.models.user_model import UserModel
-from app.schemas.user_schema import UserCreateSchema, UserResponseSchema
+from app.schemas import UserCreateSchema, UserResponseSchema
 
-user_router: APIRouter = APIRouter(prefix="/users", tags=["Users"])
+router: APIRouter = APIRouter(prefix="/users", tags=["Users"])
 
 
-@user_router.post(
+@router.post(
     "/", response_model=UserResponseSchema, status_code=status.HTTP_201_CREATED
 )
-def create_user(
-    user_data: UserCreateSchema, db_session: Session = Depends(get_db_session)
-) -> UserModel:
-    """Registers a new user in the system after validating uniqueness via stric schemas"""
-
-    logger.info(f"Attemping to register user with email: {user_data.email}")
+async def create_user(
+    user_data: UserCreateSchema, db_session: AsyncSession = Depends(get_db_session)
+) -> UserResponseSchema:
+    """
+    Registers a new user asynchronously.
+    Uses managed transactions via db_session.begin() for automatic rollback safety.
+    """
+    logger.info(f"Initiating async user registration process for: {user_data.email}")
 
     try:
         statement: Select[tuple[UserModel]] = select(UserModel).where(
             UserModel.email == user_data.email
         )
-        result = db_session.execute(statement)
+
+        # 1. Read operations do not require a transaction block
+        result = await db_session.execute(statement)
         existing_user: UserModel | None = result.scalar_one_or_none()
 
         if existing_user:
             logger.warning(
-                f"Registration failed: Email {user_data.email} is already taken."
+                f"Registration aborted: Email '{user_data.email}' already exists in database."
             )
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -42,47 +47,66 @@ def create_user(
             hashed_password=user_data.password,
         )
 
-        db_session.add(new_user)
-        db_session.commit()
-        db_session.refresh(new_user)
+        # 2. Write operations inside a managed block (Automatic Commit/Rollback)
+        async with db_session.begin():
+            db_session.add(new_user)
+            logger.debug(f"User database state staged for email: {user_data.email}")
 
-        return new_user
+        # 3. Refresh happens after the transaction block closes successfully
+        await db_session.refresh(new_user)
+
+        logger.info(
+            f"User '{user_data.email}' successfully registered with internal ID: {new_user.id}"
+        )
+
+        return UserResponseSchema(
+            id=new_user.id, email=new_user.email, full_name=new_user.full_name
+        )
 
     except IntegrityError as error:
-        db_session.rollback()
-        logger.error(f"Database integrity violation while creating user: {str(error)}")
+        # Managed block already handles rollback, we just log and translate the exception
+        logger.error(
+            f"Transaction collapsed due to database integrity violation: {str(error)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Database integrity error. Check input unique constraints.",
+            detail="Database integrity error. Check unique constraints.",
         )
     except SQLAlchemyError as error:
-        db_session.rollback()
-        logger.error(f"Database transaction failure on user creation: {str(error)}")
+        logger.critical(
+            f"Fatal database error during user creation transaction: {str(error)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal database operation failure.",
         )
 
 
-@user_router.get("/", response_model=list[UserResponseSchema])
-def list_users(db_session: Session = Depends(get_db_session)) -> list[UserModel]:
+@router.get("/", response_model=List[UserResponseSchema])
+async def list_users(
+    db_session: AsyncSession = Depends(get_db_session),
+) -> List[UserResponseSchema]:
     """
-    Retrieves all users from the database, wrapped in a strict transaction guard.
+    Retrieves all registered users asynchronously.
     """
-
-    logger.debug("Fetching all registered users from database.")
+    logger.debug("Executing async query to fetch all system users.")
 
     try:
         statement: Select[tuple[UserModel]] = select(UserModel)
-        result = db_session.execute(statement)
-        users: list[UserModel] = list(result.scalars().all())
+        result = await db_session.execute(statement)
+        users: List[UserModel] = list(result.scalars().all())
 
-        logger.info(f"Successfully retrieved {len(users)} user records.")
-        return users
+        logger.info(f"User list fetched successfully. Total records: {len(users)}")
+
+        # Mapping model objects to schemas explicitly
+        return [
+            UserResponseSchema(id=u.id, email=u.email, full_name=u.full_name)
+            for u in users
+        ]
 
     except SQLAlchemyError as error:
-        logger.error(f"Failed to query users database table. Details: {str(error)}")
+        logger.error(f"Failed to compile or execute users query. Details: {str(error)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve user records from databas",
+            detail="Failed to retrieve user records from database.",
         )

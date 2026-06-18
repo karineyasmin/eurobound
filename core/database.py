@@ -1,27 +1,34 @@
-import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.asyncio import (
+    create_async_engine,
+    AsyncSession,
+    AsyncEngine,
+    async_sessionmaker,
+)
+from sqlalchemy.orm import DeclarativeBase
+from typing import AsyncGenerator
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL", 
-    "postgresql://geouser:geopassword@localhost:5432/eurobound_spatial_db"
+
+DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/eurobound"
+
+engine: AsyncEngine = create_async_engine(DATABASE_URL, echo=True, future=True)
+
+AsyncSessionLocal: async_sessionmaker[AsyncSession] = async_sessionmaker(
+    bind=engine, class_=AsyncSession, expire_on_commit=False
 )
 
-engine = create_engine(DATABASE_URL, echo=True)
 
-SessionLocal = sessionmaker(
-    autocommit = False, autoflush=False, bind=engine
-)
+class Base(DeclarativeBase):
+    """Modern SQLAlchemy 2.0 declarative base with strict typing integration."""
 
-Base = declarative_base()
+    pass
 
-def get_db_session():
+
+async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """
-    Dependency generator to yield database sessions.
-    Ensures the connection is always closed properly after the request lifecycle.
+    Provides a transactional async session scope for API operations.
     """
-    db_session = SessionLocal()
+    session: AsyncSession = AsyncSessionLocal()
     try:
-        yield db_session
+        yield session
     finally:
-        db_session.close()
+        await session.close()

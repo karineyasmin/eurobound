@@ -1,11 +1,11 @@
 from pydantic import BaseModel, Field
 from typing import Optional
+from uuid import UUID
+
 
 # ==============================================================================
 # POINT OF INTEREST SCHEMAS
 # ==============================================================================
-
-
 class PointOfInterestBaseSchema(BaseModel):
     """Base structural definition for specific physical locations"""
 
@@ -34,8 +34,8 @@ class PointOfInterestCreateSchema(PointOfInterestBaseSchema):
 class PointOfInterestResponseSchema(PointOfInterestBaseSchema):
     """Secure spatial payload returned to the frontend"""
 
-    id: int = Field(..., description="Database index ID")
-    region_id: int = Field(..., description="The parent spatial region ID")
+    id: UUID = Field(..., description="Database index ID")
+    region_id: UUID = Field(..., description="The parent spatial region ID")
     geom_wkt: str = Field(
         ..., description="The PostGIS point represented as a clean WKT string"
     )
@@ -75,8 +75,8 @@ class SpatialRegionCreateSchema(SpatialRegionBaseSchema):
 class SpatialRegionResponseSchema(SpatialRegionBaseSchema):
     """Complete representation of a geographic region returned to the frontend"""
 
-    id: int = Field(..., description="Database index ID")
-    user_id: int = Field(..., description="The owner user ID who mapped this region")
+    id: UUID = Field(..., description="Database index ID")
+    user_id: UUID = Field(..., description="The owner user ID who mapped this region")
     geom_wkt: str = Field(
         ..., description="The PostGIS Multipolygon boundary as a WKT string"
     )

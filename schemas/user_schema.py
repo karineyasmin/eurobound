@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from uuid import UUID
 
 
 class UserBaseSchema(BaseModel):
@@ -35,7 +36,7 @@ class UserResponseSchema(UserBaseSchema):
     Excludes sensitive attributes like passwords
     """
 
-    id: int = Field(..., description="The auto-incremented database index ID")
+    id: UUID = Field(..., description="The auto-incremented database index ID")
 
     class config:
         from_attributes = True
