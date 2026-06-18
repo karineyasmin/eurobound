@@ -8,10 +8,10 @@ from app.core.logger import logger
 from app.models.user_model import UserModel
 from app.schemas import UserCreateSchema, UserResponseSchema
 
-router: APIRouter = APIRouter(prefix="/users", tags=["Users"])
+user_router: APIRouter = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.post(
+@user_router.post(
     "/", response_model=UserResponseSchema, status_code=status.HTTP_201_CREATED
 )
 async def create_user(
@@ -82,7 +82,7 @@ async def create_user(
         )
 
 
-@router.get("/", response_model=List[UserResponseSchema])
+@user_router.get("/", response_model=List[UserResponseSchema])
 async def list_users(
     db_session: AsyncSession = Depends(get_db_session),
 ) -> List[UserResponseSchema]:

@@ -8,7 +8,7 @@ class UserBaseSchema(BaseModel):
     Enforces strict email formatting via EmailStr.
     """
 
-    email: EmailStr = -Field(
+    email: EmailStr = Field(
         ..., description="The unique identification email for the user"
     )
     full_name: str = Field(

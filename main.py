@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from typing import AsyncGenerator, Dict
+from typing import AsyncGenerator
 from contextlib import asynccontextmanager
 from app.core.logger import logger
 from app.api import spatial_router
@@ -43,8 +43,8 @@ app.include_router(user_router)
 app.include_router(spatial_router)
 
 
-@app.get("/", tags=["Health"], response_model=Dict[str, str])
-async def read_root() -> Dict[str, str]:
+@app.get("/", tags=["Health"], response_model=dict[str, str])
+async def read_root() -> dict[str, str]:
     """Performs a basic applicaiton health check"""
     logger.debug("Health check endpoint triggered.")
     return {

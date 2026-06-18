@@ -15,5 +15,5 @@ class UserModel(Base):
     full_name: Mapped[str] = mapped_column(String, nullable=False)
 
     regions = relationship(
-        "SpatialRegionModel", back_populates="owner", casacade="all, delete-orphan"
+        "SpatialRegionModel", back_populates="owner", cascade="all, delete-orphan"
     )
